@@ -9,12 +9,11 @@ typedef struct node{
    struct node *child, *sibling, *parent;
 }NODE;
 
-
+//global variables
 NODE *root, *cwd, *start;
 char line[128];
 char command[16], pathname[64];
 
-//               0       1      2    
 char *cmd[] = {"mkdir", "ls", "quit", 0};
 
 int findCmd(char *command)
@@ -117,6 +116,7 @@ int quit()
   // for reload the file to reconstruct the original tree
 }
 
+//set root to "/"
 int initialize()
 {
     root = (NODE *)malloc(sizeof(NODE));
@@ -129,9 +129,12 @@ int initialize()
     printf("Root initialized OK\n");
 }
 
+
 int main()
 {
   int index;
+  int ret;
+  int (*fptr[ ])(char *)={(int (*)())mkdir,ls,quit};
 
   initialize();
 
@@ -139,6 +142,7 @@ int main()
 
   while(1){
       printf("Enter command line : ");
+      //get input
       fgets(line, 128, stdin);
       line[strlen(line)-1] = 0;
 
@@ -150,12 +154,8 @@ int main()
          continue;
 
       index = findCmd(command);
-
-      switch (index){
-        case 0: mkdir(pathname); break;
-        case 1: ls();            break;
-        case 2: quit();          break;
-      }
+      
+      ret = fptr[index](pathname);
   }
 }
 
