@@ -15,7 +15,7 @@ char line[128];
 char command[16], pathname[64];
 char dname[64], bname[64]; //for dir_name and base_name
 
-char *cmd[] = {"mkdir", "ls", "quit", "cd", "pwd", "rmdir", "rm", "creat", "save", "reload", 0};
+char *cmd[] = {"mkdir", "ls", "quit", "cd", "pwd", "rmdir", "creat", "rm", "save", "reload", "menu", 0};
 
 int findCmd(char *command)
 {
@@ -60,6 +60,28 @@ int insert_child(NODE *parent, NODE *q)
   q->sibling = 0;
 }
 
+int remove_child(NODE *parent, NODE *p)
+{
+  NODE *q;
+  printf("remove NODE %s from NODE %s\n", q->name, parent->name);
+  if(parent->child == p) //p is C(1)
+  {
+    parent->child = p->sibling;
+    free(p);
+  }
+  else // p is middle of list OR end
+  {
+    //get node before p
+    q = parent->child;
+    while(q->sibling != p)
+    {
+      q = q->sibling;
+    }
+    q->sibling = p->sibling;
+    free(p);
+  }
+  
+}
 
 //sets dirname to dname and basename to bname
 int dbname(char *pathname)
@@ -75,7 +97,7 @@ int dbname(char *pathname)
  This mkdir(char *name) makes a DIR in the current directory
  You MUST improve it to mkdir(char *pathname) for ANY pathname
 ****************************************************************/
-
+//---------------MKDIR------------------------------------------------------------------------------------
 int mkdir(char *name)
 {
   NODE *p, *q;
@@ -151,8 +173,224 @@ int mkdir(char *name)
   return 0;
 }
 
-//---------PWD---------
-int pwd_helper(NODE *p)
+//-------CREAT------------------------------------------------------------------------------------
+int creat(char *name)
+{
+  NODE *p; //ptr
+  NODE *q; //inserted
+  dbname(name);
+  printf("creat %s in %s\n", bname, dname);
+  
+  if(dname[0] == '/')
+    start = root;
+  else
+    start = cwd;
+  printf("starting from %s\n", start->name);
+  
+  //creat in cd
+  if(!strcmp(dname, ".") || !strcmp(dname, "/"))
+  {
+    printf("creat in cd\n");
+    printf("check if %s already exist\n", bname);
+    p = search_child(start, bname);
+		if (p){
+		  printf("name %s already exists, creat FAILED\n", bname);
+		  return -1;
+		}
+		p=start; //for insert
+  }
+  else
+  {
+    printf("Searching for path %s\n", dname);
+    p=start; //p = cwd || root
+		char *dir;
+		dir = strtok(dname, "/");
+		printf("searching for dir %s in parent dir %s\n", dir, p->name);
+		while(dir)
+		{
+			p = search_child(p, dir);
+			if(!p)
+			{
+			  printf("name %s not found CREAT FAILED\n", dir);
+			  return -1; 
+			}
+			else
+			  dir = strtok(0, "/"); //move to next token
+		}
+		printf("check if %s already exist\n", bname);
+		q = search_child(p, bname);
+		if(q){
+		  printf("name %s already exist, creat FAILED\n", bname);
+		  return -1;
+		}
+  }
+  
+  printf("inserting FILE %s in %s\n", bname, dname);
+  printf("--------------------------------------\n");
+  printf("ready to creat %s\n", bname);
+  q = (NODE *)malloc(sizeof(NODE));
+  q->type = 'F';
+  strcpy(q->name, bname);
+  insert_child(p, q);
+  printf("creat %s OK\n", bname);
+  printf("--------------------------------------\n");
+  
+  return 0;
+}
+
+//-------RM------------------------------------------------------------------------------------
+int rm(char *name)
+{
+  NODE *p;
+  NODE *parent;
+  
+  dbname(name);
+  printf("remove FILE %s FROM %s\n", bname, dname);
+  
+  if(dname[0] == '/')
+		start = root;
+	else
+	  start = cwd;
+	printf("starting from %s\n", start->name);
+	
+	
+	if(!strcmp(dname, ".") || !strcmp(dname, "/")) //rm from root
+  {
+    //rm dir
+    printf("No path specified, removing from CD\n");
+    parent = start;
+    p = search_child(parent, bname);
+    if(!p)
+    {
+      printf("FILE %s not exist rm FAILED\n", p->name);
+      return -1;
+    }
+    if(p->type == 'D')
+    {
+      printf("%s is a DIR rm FAILED\n", p->name);
+    }
+    remove_child(parent, p);
+    printf("Removed %s from %s\n", p->name, parent->name);
+  }
+  else
+  {
+    p = start;
+    printf("Searching for path\n");
+    char *dir = strtok(dname, "/");
+    while(dir)
+    {
+      printf("Searching for %s\n", dir);
+      p = search_child(p, dir);
+			if(!p)
+			{
+			  printf("name %s not found rm FAILED\n", dir);
+			  return -1; 
+			}
+			else
+			  dir = strtok(0, "/"); //move to next token
+    }
+    
+    printf("----Removing FILE----\n");
+    parent = p;
+    p = search_child(parent, bname);
+
+    if(!p)
+    {
+      printf("name %s not exist rm FAILED\n", p->name);
+      return -1;
+    }
+    if(p->type == 'D')
+    {
+      printf("%s is a DIR rm FAILED\n", p->name);
+    }
+    remove_child(parent, p);
+    printf("Removed %s from %s\n", bname, parent->name);
+    
+  }
+	
+}
+
+//-----RMDIR-------------------------------------------------------------------------------------
+int rmdir(char *name)
+{
+  NODE *p; //to be deleted
+  NODE *parent;
+  
+  dbname(name);
+  printf("dir_name %s base_name %s\n", dname, bname);
+  
+  if (dname[0]=='/')
+    start = root;
+  else
+    start = cwd;
+  printf("Starting from %s\n", start->name);
+  
+  if(!strcmp(dname, ".") || !strcmp(dname, "/")) //rm from root
+  {
+    //rm dir
+    printf("No path specified, removing from CD\n");
+    parent = start;
+    p = search_child(parent, bname);
+    if(p->child)
+    {
+      printf("name %s is not EMPTY rmdir FAILED\n", p->name);
+      return -1;
+    }
+    if(!p)
+    {
+      printf("name %s not exist rmdir FAILED\n", p->name);
+      return -1;
+    }
+    remove_child(parent, p);
+    printf("Removed %s from %s\n", p->name, parent->name);
+  }
+  else
+  {
+  	p = start;
+    printf("Searching for path\n");
+    char *dir = strtok(dname, "/");
+    while(dir)
+    {
+      printf("Searching for %s\n", dir);
+      p = search_child(p, dir);
+			if(!p)
+			{
+			  printf("name %s not found rmdir FAILED\n", dir);
+			  return -1; 
+			}
+			else if(p->type == 'F')
+			{
+			  printf("name %s is a FILE rmdir FAILED\n", dir);
+			  return -1;
+			}
+			else
+			  dir = strtok(0, "/"); //move to next token
+    }
+    
+    printf("----Removing dir----\n");
+    parent = p;
+    p = search_child(parent, bname);
+    if(p->child)
+    {
+      printf("name %s is not EMPTY rmdir FAILED\n", p->name);
+      return -1;
+    }
+    if(!p)
+    {
+      printf("name %s not exist rmdir FAILED\n", p->name);
+      return -1;
+    }
+    remove_child(parent, p);
+    printf("Removed %s from %s\n", p->name, parent->name);
+  }
+  
+  
+  return 0;
+  
+}
+
+//---------PWD------------------------------------------------------------------------------------
+int pwd(NODE *p)
 {
   if(p != root)
     pwd(p->parent);
@@ -164,12 +402,7 @@ int pwd_helper(NODE *p)
   return 0;
 }
 
-int pwd()
-{
-  pwd_helper(cwd);
-}
-
-//----------CD--------------
+//----------CD------------------------------------------------------------------------------------
 int cd(char *name)
 {
   if(name[0]=='/')
@@ -254,8 +487,72 @@ int ls(char *name)
   printf("\n");
 }
 
+//--------RELOAD----------------------------------------------------------------------------------
+int reload()
+{
+  FILE *fp = fopen("save_file", "r");
+  char line[128];
+  while(fgets(line, sizeof line, fp))
+  {
+    char *type, *path;
+    
+    type = strtok(line, " ");
+    printf("%s\n", type);
+    
+    path = strtok(0, "\n");
+    printf("%s\n", path);
+    
+    if(*type == 'D')
+      mkdir(path);
+    else
+      creat(path);
+  }
+  
+}
+
+//-------SAVE HELPERS----------------------------------------------------------------------------
+int fpwd(NODE *p, FILE *file)
+{
+  if(p != root)
+    fpwd(p->parent, file);
+  if(p->parent == root)
+    fprintf(file, "%s", p->name);
+  else
+    fprintf(file, "/%s", p->name);
+    
+  return 0;
+}
+
+int print_pre_order(NODE *node, FILE* file)
+{
+  if(!node)
+    return 0;
+  else
+  {
+    //print to file
+    fprintf(file, "%c ", node->type);
+    fpwd(node, file);
+    fprintf(file, "\n");
+    
+    //recursive call
+    print_pre_order(node->child, file);
+    print_pre_order(node->sibling, file);
+  }
+}
+
+//--------SAVE----------------------------------------------------------------------------------
+int save()
+{
+  FILE *fp = fopen("save_file", "w+");
+  print_pre_order(root, fp);
+  fclose(fp);
+}
+
+//--------quit----------------------------------------------------------------------------------
 int quit()
 {
+  printf("Saving Tree\n");
+  save();
   printf("Program exit\n");
   exit(0);
   // improve quit() to SAVE the current tree as a Linux file
@@ -275,18 +572,17 @@ int initialize()
     printf("Root initialized OK\n");
 }
 
+int menu()
+{ 
+ printf("NOTE: COMMANDS = [mkdir|ls|quit|rmdir|pwd|creat|rm|save|reload|menu]\n");
+ return 0;
+}
 
 int main()
 {
-
-  int index;
-  int ret;
-  int (*fptr[ ])(char *)={(int (*)())mkdir,ls,quit,cd,pwd,0}; 
-  //mkdir", "ls", "quit", "cd", "pwd", "rmdir", "rm", "creat", "save", "reload", 0
-
   initialize();
 
-  printf("NOTE: commands = [mkdir|ls|quit|rmdir|creat|rm|pwd|save|reload]\n");
+  printf("NOTE: commands = [mkdir|ls|quit|rmdir|pwd|creat|rm|save|reload|menu]\n");
 
   while(1){
       printf("Enter command line : ");
@@ -301,12 +597,24 @@ int main()
       if (command[0]==0) 
          continue;
 
-      index = findCmd(command);
-      if(index != -1)
-        ret = fptr[index](pathname);
+      switch(findCmd(command)){
+        case 0: mkdir(pathname);  break;
+        case 1: ls(pathname);  break;
+        case 2: quit(pathname);  break;
+        case 3: cd(pathname);  break;
+        case 4: pwd(cwd); printf("\n");  break;
+        case 5: rmdir(pathname);  break;
+        case 6: creat(pathname);  break;
+        case 7: rm(pathname);  break;
+        case 8: save();  break;
+        case 9: reload();  break;
+        case 10: menu();  break;
+      }
         
       
   }
+  printf("program exit\n");
+  return 0;
 }
 
 
