@@ -13,8 +13,9 @@ typedef struct node{
 NODE *root, *cwd, *start;
 char line[128];
 char command[16], pathname[64];
+char dname[64], bname[64]; //for dir_name and base_name
 
-char *cmd[] = {"mkdir", "ls", "quit", 0};
+char *cmd[] = {"mkdir", "ls", "quit", "cd", "pwd", "rmdir", "rm", "creat", "save", "reload", 0};
 
 int findCmd(char *command)
 {
@@ -59,6 +60,17 @@ int insert_child(NODE *parent, NODE *q)
   q->sibling = 0;
 }
 
+
+//sets dirname to dname and basename to bname
+int dbname(char *pathname)
+{
+  char temp[128]; //dirname/basename destroy pathname
+  strcpy(temp, pathname);
+  strcpy(dname, dirname(temp));
+  strcpy(temp, pathname);
+  strcpy(bname, basename(temp));
+}
+
 /***************************************************************
  This mkdir(char *name) makes a DIR in the current directory
  You MUST improve it to mkdir(char *pathname) for ANY pathname
@@ -69,38 +81,172 @@ int mkdir(char *name)
   NODE *p, *q;
   printf("mkdir: name=%s\n", name);
 
+  //check for taken name
   if (!strcmp(name, "/") || !strcmp(name, ".") || !strcmp(name, "..")){
     printf("can't mkdir with %s\n", name);
     return -1;
   }
-  if (name[0]=='/')
+  
+  dbname(name); //bname = basename, dname = dirname
+  printf("dir_name %s and base_name %s\n", dname, bname);
+  
+  if (dname[0]=='/')
     start = root;
   else
     start = cwd;
-
-  printf("check whether %s already exists\n", name);
-  p = search_child(start, name);
-  if (p){
-    printf("name %s already exists, mkdir FAILED\n", name);
-    return -1;
+  printf("starting from %s\n", start->name);
+  
+  //mkdir in cwd/root
+  if(!strcmp(dname, ".") || !strcmp(dname, "/"))
+  {
+		printf("no path specified, creating in current dir\n");
+		printf("check whether %s already exists\n", bname);
+		p = search_child(start, bname);
+		if (p){
+		  printf("name %s already exists, mkdir FAILED\n", bname);
+		  return -1;
+		}
+		p=start; //for insert
   }
+  else //mkdir in dname
+  {
+		p=start; //p = cwd || root
+		char *dir;
+		dir = strtok(dname, "/");
+		printf("searching for dir %s in parent dir %s\n", dir, p->name);
+		while(dir)
+		{
+			p = search_child(p, dir);
+			if(!p)
+			{
+			  printf("name %s not found mkdir FAILED\n", dir);
+			  return -1; 
+			}
+			else if(p->type == 'F')
+			{
+			  printf("name %s is a FILE mkdir FAILED\n", dir);
+			  return -1;
+			}
+			else
+			  dir = strtok(0, "/"); //move to next token
+		}
+		printf("check if %s already exist\n", bname);
+		q = search_child(p, bname);
+		if(q){
+		  printf("name %s already exist, mkdir FAILED\n", bname);
+		  return -1;
+		}
+  }
+  
+  //insert node
   printf("--------------------------------------\n");
-  printf("ready to mkdir %s\n", name);
+  printf("ready to mkdir %s\n", bname);
   q = (NODE *)malloc(sizeof(NODE));
   q->type = 'D';
-  strcpy(q->name, name);
-  insert_child(start, q);
-  printf("mkdir %s OK\n", name);
+  strcpy(q->name, bname);
+  insert_child(p, q);
+  printf("mkdir %s OK\n", bname);
   printf("--------------------------------------\n");
+  
+  return 0;
+}
+
+//---------PWD---------
+int pwd_helper(NODE *p)
+{
+  if(p != root)
+    pwd(p->parent);
+  if(p->parent == root)
+    printf("%s", p->name);
+  else
+    printf("/%s", p->name);
     
   return 0;
 }
 
-// This ls() list CWD. You MUST improve it to ls(char *pathname)
-int ls()
+int pwd()
 {
-  NODE *p = cwd->child;
-  printf("cwd contents = ");
+  pwd_helper(cwd);
+}
+
+//----------CD--------------
+int cd(char *name)
+{
+  if(name[0]=='/')
+    start = root;
+  else
+    start = cwd;
+  NODE *p = start;
+  
+	char *dir;
+	dir = strtok(name, "/");
+	while(dir)
+	{
+		if(!strcmp(dir, ".."))
+		{
+			printf(".. found, moving up one directory\n");
+			p = p->parent;
+		}
+		else
+		{
+			p = search_child(p, dir);
+			if(p->type == 'F')
+			{
+				printf("name %s is a FILE cd FAILED\n", dir);
+				return -1;
+			}
+			else if(!p)
+			{
+				printf("name %s not found cd FAILED\n", dir);
+				return -1; 
+			}
+		}
+		dir = strtok(0, "/"); //move to next token
+	}
+
+	printf("dir found, setting cwd to %s\n", pathname);
+	cwd = p;
+  
+  return 0;
+}
+
+// This ls() list CWD. You MUST improve it to ls(char *pathname)
+int ls(char *name)
+{
+  if (name[0]=='/')
+    start = root;
+  else
+    start = cwd;
+  NODE *p = start;  
+  if(!name) //no name given
+  {
+    printf("no path, print cwd\n");
+  }
+  else
+  {
+    printf("check if pathname %s exist\n", name);
+    char *dir;
+    dir = strtok(name, "/");
+    while(dir)
+    {
+      p = search_child(p, dir);
+			if(!p)
+			{
+			  printf("name %s not found mkdir FAILED\n", dir);
+			  return -1; 
+			}
+			else if(p->type == 'F')
+			{
+			  printf("name %s is a FILE mkdir FAILED\n", dir);
+			  return -1;
+			}
+			else
+			  dir = strtok(0, "/"); //move to next token
+    }
+  }
+  
+  p = p->child;
+  printf("contents = ");
   while(p){
     printf("[%c %s] ", p->type, p->name);
     p = p->sibling;
@@ -132,13 +278,15 @@ int initialize()
 
 int main()
 {
+
   int index;
   int ret;
-  int (*fptr[ ])(char *)={(int (*)())mkdir,ls,quit};
+  int (*fptr[ ])(char *)={(int (*)())mkdir,ls,quit,cd,pwd,0}; 
+  //mkdir", "ls", "quit", "cd", "pwd", "rmdir", "rm", "creat", "save", "reload", 0
 
   initialize();
 
-  printf("NOTE: commands = [mkdir|ls|quit]\n");
+  printf("NOTE: commands = [mkdir|ls|quit|rmdir|creat|rm|pwd|save|reload]\n");
 
   while(1){
       printf("Enter command line : ");
@@ -154,8 +302,10 @@ int main()
          continue;
 
       index = findCmd(command);
+      if(index != -1)
+        ret = fptr[index](pathname);
+        
       
-      ret = fptr[index](pathname);
   }
 }
 
