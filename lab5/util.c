@@ -203,14 +203,45 @@ int getino(char *pathname)
 // These 2 functions are needed for pwd()
 int findmyname(MINODE *parent, u32 myino, char myname[ ]) 
 {
-  // WRITE YOUR code here
-  // search parent's data block for myino; SAME as search() but by myino
-  // copy its name STRING to myname[ ]
+   DIR *dp;
+   char *cp, temp[256], buf[BLKSIZE];
+
+   get_block(dev, parent->INODE.i_block[0], buf);
+   dp = (DIR *)buf;
+   cp = buf;
+
+   while(cp < buf + BLKSIZE)
+   {
+      strncpy(temp, dp->name, dp->name_len);
+      temp[dp->name_len] = 0;
+
+      if(dp->inode == myino)
+      {
+         strcpy(myname, temp);
+         break;
+      }
+
+      cp += dp->rec_len;
+      dp = (DIR *)cp;
+   }
+   return 0;
 }
 
 int findino(MINODE *mip, u32 *myino) // myino = i# of . return i# of ..
 {
-  // mip points at a DIR minode
-  // WRITE your code here: myino = ino of .  return ino of ..
-  // all in i_block[0] of this DIR INODE.
+   char buf[BLKSIZE], *cp;
+   int pino;
+   DIR *dp;
+
+   get_block(dev, mip->INODE.i_block[0], buf);
+   dp = (DIR *)buf;
+   cp = buf;
+
+   *myino = dp->inode;
+
+   cp += dp->rec_len;
+   dp = (DIR *)cp;
+   printf("MYINO: %d    PINO: %d\n", *myino, dp->inode);
+
+   return dp->inode;
 }

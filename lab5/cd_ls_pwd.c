@@ -33,6 +33,7 @@ int ls_file(MINODE *mip, char *name)
   INODE *ip = &mip->INODE; 
   char *t1 = "xwrxwrxwr-------";
   char *t2 = "----------------";
+  char ftime[256];
 
   //print mode
   if(S_ISREG(ip->i_mode))
@@ -56,7 +57,9 @@ int ls_file(MINODE *mip, char *name)
   printf("%4d ", ip->i_uid); //uid
 
   //print time
-  printf("%s", ctime(&ip->i_mtime));
+  strcpy(ftime, ctime(&ip->i_mtime));
+  ftime[strlen(ftime) - 1] = 0;
+  printf("%s", ftime);
 
   //print size
   printf("%8d ", ip->i_size);
@@ -98,34 +101,59 @@ int ls(char *pathname)
   int ino;
   MINODE *mip;
 
-  //get the ino number of the dir(file)
-  if(!(ino = getino(pathname)))
+  if(!pathname[0])
+    ls_dir(running->cwd);
+  else
   {
-    printf("File %s not found ERROR\n");
-    return 0;
+    //get the ino number of the dir(file)
+    if(!(ino = getino(pathname)))
+    {
+      printf("File %s not found ERROR\n");
+      return 0;
+    }
+
+    //get the MINODE info(mem block)
+    printf("Reading in dir with ino# %d\n", ino);
+    mip = iget(dev, ino);
+
+    //make sure its a dir
+    if(!S_ISDIR(mip->INODE.i_mode))
+    {
+      printf("File %s is not a dir ERROR\n", pathname);
+      return 0;
+    }
+
+    ls_dir(mip); //call ls_dir on the directory we found
   }
-
-  //get the MINODE info(mem block)
-  printf("Reading in dir with ino# %d\n", ino);
-  mip = iget(dev, ino);
-
-  //make sure its a dir
-  if(!S_ISDIR(mip->INODE.i_mode))
-  {
-    printf("File %s is not a dir ERROR\n", pathname);
-    return 0;
-  }
-
-  ls_dir(mip); //call ls_dir on the directory we found
+  
 }
 
 char *pwd(MINODE *wd)
 {
-  printf("pwd: READ HOW TO pwd in textbook!!!!\n");
   if (wd == root){
-    printf("/\n");
-    return;
+    printf("/");
   }
+  else
+    rpwd(wd);
+
+  printf("\n");
+}
+
+int rpwd(MINODE *wd)
+{
+  char myname[256];
+  int pino, myino;
+  MINODE *pip;
+
+  if(wd == root)
+    return;
+
+  pino = findino(wd, &myino);
+  pip = iget(dev, pino);
+  findmyname(pip, myino, myname);
+  rpwd(pip);
+
+  printf("/%s", myname);
 }
 
 
