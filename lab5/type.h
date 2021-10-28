@@ -20,12 +20,12 @@ DIR   *dp;
 #define NMINODE   128
 #define NPROC       2
 
+
 typedef struct minode{
-  INODE INODE;           // INODE structure on disk
-  int dev, ino;          // (dev, ino) of INODE
+  INODE INODE;           // INODE is the actual file structure
+  int dev, ino;          // device it is o, position it is at
   int refCount;          // in use count
   int dirty;             // 0 for clean, 1 for modified
-
   int mounted;           // for level-3
   struct mntable *mptr;  // for level-3
 }MINODE;

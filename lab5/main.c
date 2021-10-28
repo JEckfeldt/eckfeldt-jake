@@ -22,7 +22,7 @@ char gpath[128]; // global for tokenized components
 char *name[64];  // assume at most 64 components in pathname
 int   n;         // number of component strings
 
-int fd, dev;
+int fd, dev; //device is 3 (0-2) are reserved for i/o operations
 int nblocks, ninodes, bmap, imap, iblk;
 char line[128], cmd[32], pathname[128];
 
@@ -70,14 +70,16 @@ int main(int argc, char *argv[ ])
     exit(1);
   }
 
-  dev = fd;    // global dev same as this fd   
+  // global device same as this file descriptor returned by opening
+  dev = fd;
 
   /********** read super block  ****************/
+  //1 is the super block
   get_block(dev, 1, buf);
   sp = (SUPER *)buf;
 
   /* verify it's an ext2 file system ***********/
-  if (sp->s_magic != 0xEF53){
+  if (sp->s_magic != 0xEF53){  //0xEF53 is ext2 system magic number
       printf("magic = %x is not an ext2 filesystem\n", sp->s_magic);
       exit(1);
   }     
@@ -85,15 +87,16 @@ int main(int argc, char *argv[ ])
   ninodes = sp->s_inodes_count;
   nblocks = sp->s_blocks_count;
 
+  //2 is group descriptor block
   get_block(dev, 2, buf); 
   gp = (GD *)buf;
 
-  bmap = gp->bg_block_bitmap;
-  imap = gp->bg_inode_bitmap;
+  bmap = gp->bg_block_bitmap; //bitmap block number
+  imap = gp->bg_inode_bitmap; //imap block numnber ()
   iblk = gp->bg_inode_table;
   printf("bmp=%d imap=%d inode_start = %d\n", bmap, imap, iblk);
 
-  init();  
+  init();
   mount_root();
   printf("root refCount = %d\n", root->refCount);
 
@@ -103,8 +106,10 @@ int main(int argc, char *argv[ ])
   running->cwd = iget(dev, 2);
   printf("root refCount = %d\n", root->refCount);
 
-  // WRTIE code here to create P1 as a USER process
+  // WRITE code here to create P1 as a USER process
+  // printf("creating P1 as a USER process\n");
   
+
   while(1){
     printf("input command : [ls|cd|pwd|quit] ");
     fgets(line, 128, stdin);
@@ -118,9 +123,9 @@ int main(int argc, char *argv[ ])
     printf("cmd=%s pathname=%s\n", cmd, pathname);
   
     if (strcmp(cmd, "ls")==0)
-       ls();
+       ls(pathname);
     else if (strcmp(cmd, "cd")==0)
-       cd();
+       cd(pathname);
     else if (strcmp(cmd, "pwd")==0)
        pwd(running->cwd);
     else if (strcmp(cmd, "quit")==0)

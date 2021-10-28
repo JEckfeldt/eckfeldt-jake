@@ -24,6 +24,7 @@ extern int nblocks, ninodes, bmap, imap, iblk;
 
 extern char line[128], cmd[32], pathname[128];
 
+//read block from device dev from blk to BLKSIZE into buf
 int get_block(int dev, int blk, char *buf)
 {
    lseek(dev, (long)blk*BLKSIZE, 0);
@@ -71,7 +72,7 @@ MINODE *iget(int dev, int ino)
     mip = &minode[i];
     if (mip->refCount && mip->dev == dev && mip->ino == ino){
        mip->refCount++;
-       //printf("found [%d %d] as minode[%d] in core\n", dev, ino, i);
+      //  printf("found [%d %d] as minode[%d] in core\n", dev, ino, i);
        return mip;
     }
   }
@@ -119,10 +120,12 @@ void iput(MINODE *mip)
  /**************** NOTE ******************************
   For mountroot, we never MODIFY any loaded INODE
                  so no need to write it back
-  FOR LATER WROK: MUST write INODE back to disk if refCount==0 && DIRTY
+  FOR LATER WORK: MUST write INODE back to disk if refCount==0 && DIRTY
 
   Write YOUR code here to write INODE back to disk
  *****************************************************/
+//  block = (mip->ino - 1) / 8 + iblk;
+
 } 
 
 int search(MINODE *mip, char *name)
